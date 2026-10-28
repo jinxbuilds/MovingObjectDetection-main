@@ -1,46 +1,91 @@
-# MovingObjectDetection
+# Moving Object Detection
 
-Moving object detection is a technique used in computer vision and image processing. Multiple consecutive frames from a video are compared by various methods to determine if any moving object is detected. Moving objects detection has a wide range of applications like video surveillance, activity recognition, road condition monitoring, airport safety, monitoring of protection along marine border, etc. By acting segmentation among moving objects and stationary area or region, the moving objects motion could be tracked and thus could be analyzed later. To achieve this, consider a video is a structure built upon single frames, moving object detection is to find the foreground moving target(s), either in each video frame or only when the moving target show the first appearance in the video.
+Real-time motion detection with Python and OpenCV. The script compares each video frame against a background model, isolates the regions that changed, and draws bounding boxes around moving objects. It works with a live webcam or any video file, and can save the annotated result.
 
-# Steps Involved
+![Demo: people detected and boxed as they walk across a courtyard](assets/demo.gif)
 
-1. Extract Background in Video Input :
+## Features
 
-       * Capturing the Video in 'cap' and extract 30 random frames and store the selected frames in an array
-       
-       * Calculating median and average frames, for better outlier removal
+- Webcam or video file input
+- Three background models: first frame, running average, and OpenCV's MOG2
+- Tunable sensitivity (difference threshold and minimum object size)
+- Optional annotated video export (`.mp4`)
+- Headless mode for servers or batch processing
+- Only two dependencies: OpenCV and NumPy
 
-2. Processing a Frame :
+## Quick start
 
-        * Studying a single frame separately (first frame)
-        
-        * Converting the Median and sample image to grayscale
+```bash
+git clone https://github.com/jinxbuilds/MovingObjectDetection-main.git
+cd MovingObjectDetection-main
+pip install -r requirements.txt
 
-3. Background Removal :
+python motion_detector.py              # default webcam, press q to quit
+```
 
-        * Performing Absolute Difference between gray_frame_sample and gray_frame_median to get the moving objects only, with the background removed
-        
-4. Blurring :
+## Usage
 
-        * Performing Gaussian Blur for noise reduction and to simplify edge detection  
-        
-5. Binarizing the image - Thresholding : 
+```bash
+# Process a video file
+python motion_detector.py --source path/to/video.mp4
 
-         * Performing Threshold and OTSU Threshold to bring the moving objects out clearly
-         
-6. Countour and Boundary Boxes :
+# Use the MOG2 model and save the annotated output
+python motion_detector.py --source video.mp4 --method mog2 --output result.mp4
 
-         *  Creating contours on the thresholded frame. Contours are curves joining continuous points in an image with same color intensity. We shall use
-            cv2.RETR_EXTERNAL to fing the extreme outer contours and cv2.CHAIN_APPROX_SIMPLE to remove the redundant points.
-           
-         * Creating Bounding Boxes (rectangular) for identified contours and display them on frame_sample
-         
-7. Compiling frames together for processing video :
+# Less sensitive: ignore small objects and minor changes
+python motion_detector.py --min-area 1500 --threshold 40
 
-          * Declaring output video to be created
-          * Creating cap and getting total frame count
-          * Running a Loop to go through all frames and process the Video
-     
-# Output :
+# Run without a preview window
+python motion_detector.py --source video.mp4 --output result.mp4 --no-display
+```
 
-To see the output video, go to the media file and check the output video
+| Option | Default | Description |
+|---|---|---|
+| `--source` | `0` | Camera index or path to a video file |
+| `--method` | `running-avg` | Background model: `first-frame`, `running-avg` or `mog2` |
+| `--min-area` | `500` | Minimum contour area (px²) to count as motion |
+| `--threshold` | `25` | Pixel difference (0–255) treated as a change |
+| `--width` | `600` | Frames are resized to this width before processing |
+| `--output` | none | Save the annotated video to this path |
+| `--no-display` | off | Don't open a preview window |
+
+## How it works
+
+1. **Pre-process.** Each frame is resized, converted to grayscale and smoothed with a Gaussian blur to suppress sensor noise.
+2. **Background model.**
+   - `first-frame`: the first frame is the background. Simple, but sensitive to lighting changes.
+   - `running-avg`: the background is a weighted running average that slowly adapts to gradual changes such as light shifts.
+   - `mog2`: OpenCV's Gaussian-mixture background subtractor, the most robust option for busy scenes.
+3. **Difference and threshold.** The absolute difference between the frame and the background is thresholded into a binary mask, then dilated to fill gaps.
+4. **Contours.** External contours are extracted from the mask; contours smaller than `--min-area` are discarded as noise.
+5. **Annotate.** A bounding box is drawn around each remaining contour, and a status label shows whether motion is present.
+
+## Using it in your own code
+
+```python
+import cv2
+from motion_detector import MotionDetector, Config
+
+detector = MotionDetector(Config(method="mog2", min_area=800))
+cap = cv2.VideoCapture("video.mp4")
+while True:
+    ok, frame = cap.read()
+    if not ok:
+        break
+    for x, y, w, h in detector.detect(frame):
+        print("motion at", x, y, w, h)
+```
+
+## Applications
+
+Video surveillance, intrusion alerts, traffic and road monitoring, wildlife cameras, and as a cheap first stage before running a heavier object-detection model only on frames that contain motion.
+
+## Possible improvements
+
+- Object tracking across frames (e.g. centroid or SORT tracking)
+- Classifying detected objects with a pretrained model such as YOLO
+- Alerts (email or webhook) when motion is detected
+
+## License
+
+[MIT](LICENSE)

@@ -1,11 +1,12 @@
-node_modules
-.env
 __pycache__/
 *.pyc
+.venv/
+venv/
+.env
 .DS_Store
-.vscode
-.idea
-dist
-build
-.venv
-venv
+.vscode/
+.idea/
+# generated output videos
+*.mp4
+*.avi
+!assets/*.mp4
